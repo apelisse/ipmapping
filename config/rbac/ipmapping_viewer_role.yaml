@@ -1,0 +1,20 @@
+# permissions for end users to view ipmappings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ipmapping-viewer-role
+rules:
+- apiGroups:
+  - change.group.change.me.later
+  resources:
+  - ipmappings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - change.group.change.me.later
+  resources:
+  - ipmappings/status
+  verbs:
+  - get

@@ -1,0 +1,6 @@
+apiVersion: change.group.change.me.later/v1beta1
+kind: IPMapping
+metadata:
+  name: ipmapping-sample
+spec:
+  # TODO(user): Add fields here
