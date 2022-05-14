@@ -20,22 +20,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // IPMappingSpec defines the desired state of IPMapping
 type IPMappingSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	TargetRef ObjectReference `json:"targetRef"`
+}
 
-	// Foo is an example field of IPMapping. Edit ipmapping_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+// ObjectReference identifies where to find the IP address that needs to
+// be mapped with a service.
+type ObjectReference struct {
+	// APIVersion of the object to watch.
+	APIVersion string `json:"apiVersion"`
+
+	// Kind of the resource to watch.
+	Kind string `json:"kind"`
+
+	// Name of the resource to watch.
+	Name string `json:"name"`
+
+	// Path to the IP Field that needs to be mapped.
+	// +optional
+	FieldPath *string `json:"fieldPath,omitempty"`
 }
 
 // IPMappingStatus defines the observed state of IPMapping
 type IPMappingStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// TODO: That certainly misses `Conditions`, but I'm too lazy
+	// right now to do it, and we can live without it for now.
+
+	// IPAddress is the IP that we've read from the target object
+	// and that is used for the endpoint.
+	IPAddress *string `json:"ipAddress,omitempty"`
 }
 
 //+kubebuilder:object:root=true
