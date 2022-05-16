@@ -1,0 +1,80 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: ipmappings.change.group.change.me.later
+spec:
+  group: change.group.change.me.later
+  names:
+    kind: IPMapping
+    listKind: IPMappingList
+    plural: ipmappings
+    singular: ipmapping
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: IPMapping is the Schema for the ipmappings API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: IPMappingSpec defines the desired state of IPMapping
+            properties:
+              ref:
+                description: ObjectReference identifies where to find the IP address
+                  that needs to be mapped with a service.
+                properties:
+                  apiVersion:
+                    description: APIVersion of the object to watch.
+                    type: string
+                  fieldPath:
+                    description: Path to the IP Field that needs to be mapped.
+                    type: string
+                  kind:
+                    description: Kind of the resource to watch.
+                    type: string
+                  name:
+                    description: Name of the resource to watch.
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+            required:
+            - ref
+            type: object
+          status:
+            description: IPMappingStatus defines the observed state of IPMapping
+            properties:
+              ipAddress:
+                description: IPAddress is the IP that we've read from the target object
+                  and that is used for the endpoint.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
