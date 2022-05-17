@@ -10,24 +10,36 @@ rules:
   resources:
   - ipmappings
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
-- apiGroups:
-  - change.group.change.me.later
-  resources:
-  - ipmappings/finalizers
-  verbs:
-  - update
 - apiGroups:
   - change.group.change.me.later
   resources:
   - ipmappings/status
   verbs:
   - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
   - patch
   - update
