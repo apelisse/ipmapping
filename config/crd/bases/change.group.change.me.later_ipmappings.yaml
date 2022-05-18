@@ -35,7 +35,7 @@ spec:
           spec:
             description: IPMappingSpec defines the desired state of IPMapping
             properties:
-              ref:
+              targetRef:
                 description: ObjectReference identifies where to find the IP address
                   that needs to be mapped with a service.
                 properties:
@@ -57,7 +57,7 @@ spec:
                 - name
                 type: object
             required:
-            - ref
+            - targetRef
             type: object
           status:
             description: IPMappingStatus defines the observed state of IPMapping

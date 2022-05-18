@@ -18,7 +18,10 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,23 +36,85 @@ type IPMappingReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=change.group.change.me.later,resources=ipmappings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=change.group.change.me.later,resources=ipmappings,verbs=get;list;watch
 //+kubebuilder:rbac:groups=change.group.change.me.later,resources=ipmappings/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=change.group.change.me.later,resources=ipmappings/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;update;patch;create;delete
+//+kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;update;patch;create;delete
+
+func (r *IPMappingReconciler) ApplyService(ctx context.Context, ipMapping *changegroupv1beta1.IPMapping) error {
+	service := v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ipMapping.ObjectMeta.Name,
+			Namespace: ipMapping.ObjectMeta.Namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Port: 443, // TODO: Shouldn't be hard-coded
+				},
+			},
+		},
+	}
+	return r.Patch(ctx, &service, client.Apply, client.FieldOwner("ipmapping_controller"), client.ForceOwnership)
+}
+
+func (r *IPMappingReconciler) ApplyEndpoints(ctx context.Context, ipMapping *changegroupv1beta1.IPMapping) error {
+	if ipMapping.Status.IPAddress == nil {
+		// TODO: We should probably remove the existing
+		// endpoints if we don't have the address anymore.
+		return nil
+	}
+	service := v1.Endpoints{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Endpoints",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ipMapping.ObjectMeta.Name,
+			Namespace: ipMapping.ObjectMeta.Namespace,
+		},
+		Subsets: []v1.EndpointSubset{
+			{
+				Addresses: []v1.EndpointAddress{
+					{
+						IP: *ipMapping.Status.IPAddress,
+					},
+				},
+				Ports: []v1.EndpointPort{
+					{
+						Port: 443, // TODO: Shouldn't be hard-coded
+					},
+				},
+			},
+		},
+	}
+	return r.Patch(ctx, &service, client.Apply, client.FieldOwner("ipmapping_controller"), client.ForceOwnership)
+}
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the IPMapping object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.2/pkg/reconcile
 func (r *IPMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	log.Info("Reconciling", "Request", req)
+
+	var ipMapping changegroupv1beta1.IPMapping
+	if err := r.Get(ctx, req.NamespacedName, &ipMapping); err != nil {
+		// TODO: If the object is not found, we probably need to remove the
+		// service and stop watching.
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if err := r.ApplyService(ctx, &ipMapping); err != nil {
+		return ctrl.Result{}, fmt.Errorf("Failed to apply service: %v", err)
+	}
+	if err := r.ApplyEndpoints(ctx, &ipMapping); err != nil {
+		return ctrl.Result{}, fmt.Errorf("Failed to apply endpoints: %v", err)
+	}
 
 	return ctrl.Result{}, nil
 }
