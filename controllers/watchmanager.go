@@ -139,13 +139,9 @@ func (w *watch) runWorker() {
 		err := w.handler(key.(string))
 		if err == nil {
 			w.queue.Forget(key)
-		} else if w.queue.NumRequeues(key) < 3 {
-			w.queue.AddRateLimited(key)
 		} else {
-			w.queue.Forget(key)
-			utilruntime.HandleError(err)
+			w.queue.AddRateLimited(key)
 		}
-
 		w.queue.Done(key)
 	}
 }
