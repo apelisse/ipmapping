@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,12 +42,13 @@ type WatchManager interface {
 
 type watchManager struct {
 	client dynamic.Interface
+	log    logr.Logger
 }
 
 // NewWatchManager creates a new watch factory that can watch arbitrary
 // resources, and the watches can be stopped. This automatically uses
 // the in-cluster configuration.
-func NewWatchManager() (WatchManager, error) {
+func NewWatchManager(log logr.Logger) (WatchManager, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -57,11 +59,12 @@ func NewWatchManager() (WatchManager, error) {
 		return nil, err
 	}
 
-	return &watchManager{client: client}, nil
+	return &watchManager{client: client, log: log.WithName("WatchManager")}, nil
 }
 
 // Watch implements the WatchManager interface.
 func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, handler func(key string) error) (Watch, error) {
+	w.log.Info("Adding new watch", "gvr", gvr, "namespace", namespace)
 	informer := dynamicinformer.NewFilteredDynamicInformer(w.client, gvr, namespace, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil).Informer()
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -99,6 +102,9 @@ func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, 
 		informerStopCh: make(chan struct{}),
 		queue:          queue,
 		handler:        handler,
+		log:            w.log.WithName("Watch"),
+		namespace:      namespace,
+		gvr:            gvr,
 	}
 
 	go func() {
@@ -127,6 +133,9 @@ type watch struct {
 	informerStopCh chan struct{}
 	queue          workqueue.RateLimitingInterface
 	handler        func(key string) error
+	log            logr.Logger
+	gvr            schema.GroupVersionResource
+	namespace      string
 }
 
 func (w *watch) runWorker() {
@@ -148,6 +157,7 @@ func (w *watch) runWorker() {
 
 // Stop terminates the current watch and returns the associated resources.
 func (w *watch) Stop() {
+	w.log.Info("Terminating watch", "gvr", w.gvr, "namespace", w.namespace)
 	w.queue.ShutDown()
 	close(w.informerStopCh)
 	w.workerStopCh <- struct{}{}
