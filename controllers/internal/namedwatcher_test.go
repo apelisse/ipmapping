@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/testr"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 type FakeWatchManager struct {
@@ -38,7 +39,7 @@ func NewFakeWatchManager(log logr.Logger) *FakeWatchManager {
 	}
 }
 
-func (f *FakeWatchManager) Watch(gvr schema.GroupVersionResource, namespace string, handler func(key string) error) (controllers.Watch, error) {
+func (f *FakeWatchManager) Watch(gvr schema.GroupVersionResource, namespace string, handler func(_ cache.GenericLister, name string) error) (controllers.Watch, error) {
 	f.log.Info("Watch", "gvr", gvr, "namespace", namespace)
 	if gvrw, ok := f.watches[gvr]; ok {
 		if _, ok := gvrw[namespace]; ok {
@@ -69,7 +70,7 @@ func (f *FakeWatchManager) Event(gvr schema.GroupVersionResource, namespace stri
 	if !ok {
 		panic(fmt.Errorf("Can't create event for missing watch on gvr/namespace: %v/%v", gvr, namespace))
 	}
-	if err := watch.handler(name); err != nil {
+	if err := watch.handler(nil, name); err != nil {
 		panic(fmt.Errorf("Failed to run watch handler: %v", err))
 	}
 }
@@ -84,7 +85,7 @@ type FakeWatch struct {
 	manager   *FakeWatchManager
 	gvr       schema.GroupVersionResource
 	namespace string
-	handler   func(name string) error
+	handler   func(lister cache.GenericLister, name string) error
 	log       logr.Logger
 }
 
@@ -105,8 +106,8 @@ func (f *FakeWatch) Stop() {
 
 type Counter map[string]int
 
-func (c Counter) Handler(name string) func() error {
-	return func() error {
+func (c Counter) Handler(name string) func(cache.GenericLister) error {
+	return func(_ cache.GenericLister) error {
 		c[name] += 1
 		return nil
 	}

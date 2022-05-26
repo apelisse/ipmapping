@@ -37,7 +37,7 @@ type WatchManager interface {
 	// Watch creates and starts a new watch for the given GVR. If
 	// the watch can't be started, an error is returned. The watch
 	// can be stopped by calling its Stop method.
-	Watch(gvr schema.GroupVersionResource, namespace string, handler func(name string) error) (Watch, error)
+	Watch(gvr schema.GroupVersionResource, namespace string, handler func(lister cache.GenericLister, name string) error) (Watch, error)
 }
 
 type watchManager struct {
@@ -63,11 +63,12 @@ func NewWatchManager(log logr.Logger) (WatchManager, error) {
 }
 
 // Watch implements the WatchManager interface.
-func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, handler func(key string) error) (Watch, error) {
+func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, handler func(lister cache.GenericLister, key string) error) (Watch, error) {
 	w.log.Info("Adding new watch", "gvr", gvr, "namespace", namespace)
-	informer := dynamicinformer.NewFilteredDynamicInformer(w.client, gvr, namespace, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil).Informer()
+	informer := dynamicinformer.NewFilteredDynamicInformer(w.client, gvr, namespace, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
+	lister := informer.Lister()
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err == nil {
@@ -100,6 +101,7 @@ func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, 
 	watch := &watch{
 		workerStopCh:   make(chan struct{}),
 		informerStopCh: make(chan struct{}),
+		lister:         lister,
 		queue:          queue,
 		handler:        handler,
 		log:            w.log.WithName("Watch"),
@@ -108,12 +110,12 @@ func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, 
 	}
 
 	go func() {
-		informer.Run(watch.informerStopCh)
+		informer.Informer().Run(watch.informerStopCh)
 	}()
 
 	go func() {
 		// wait for the caches to synchronize before starting the worker
-		if !cache.WaitForCacheSync(watch.workerStopCh, informer.HasSynced) {
+		if !cache.WaitForCacheSync(watch.workerStopCh, informer.Informer().HasSynced) {
 			utilruntime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
 			return
 		}
@@ -131,8 +133,9 @@ type Watch interface {
 type watch struct {
 	workerStopCh   chan struct{}
 	informerStopCh chan struct{}
+	lister         cache.GenericLister
 	queue          workqueue.RateLimitingInterface
-	handler        func(key string) error
+	handler        func(lister cache.GenericLister, name string) error
 	log            logr.Logger
 	gvr            schema.GroupVersionResource
 	namespace      string
@@ -145,7 +148,7 @@ func (w *watch) runWorker() {
 			return
 		}
 
-		err := w.handler(key.(string))
+		err := w.handler(w.lister, key.(string))
 		if err == nil {
 			w.queue.Forget(key)
 		} else {
