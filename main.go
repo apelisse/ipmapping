@@ -81,7 +81,7 @@ func main() {
 	if err = (&controllers.IPMappingReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, ctrl.Log); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "IPMapping")
 		os.Exit(1)
 	}
