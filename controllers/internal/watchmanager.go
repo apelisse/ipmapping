@@ -68,33 +68,46 @@ func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, 
 	informer := dynamicinformer.NewFilteredDynamicInformer(w.client, gvr, namespace, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
 	lister := informer.Lister()
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	actualInformer := informer.Informer()
+	actualInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			if err == nil {
-				name, _, err := cache.SplitMetaNamespaceKey(key)
-				if err != nil {
-					queue.Add(name)
-				}
+			if err != nil {
+				w.log.Error(err, "Failed to get key")
+				return
 			}
+			_, name, err := cache.SplitMetaNamespaceKey(key)
+			if err != nil {
+				w.log.Error(err, "Failed to split namespace", "key", key)
+				return
+			}
+			queue.Add(name)
 		},
 		UpdateFunc: func(_ interface{}, newObj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(newObj)
-			if err == nil {
-				name, _, err := cache.SplitMetaNamespaceKey(key)
-				if err != nil {
-					queue.Add(name)
-				}
+			if err != nil {
+				w.log.Error(err, "Failed to get key")
+				return
 			}
+			_, name, err := cache.SplitMetaNamespaceKey(key)
+			if err != nil {
+				w.log.Error(err, "Failed to split namespace", "key", key)
+				return
+			}
+			queue.Add(name)
 		},
 		DeleteFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			if err == nil {
-				name, _, err := cache.SplitMetaNamespaceKey(key)
-				if err != nil {
-					queue.Add(name)
-				}
+			if err != nil {
+				w.log.Error(err, "Failed to get key")
+				return
 			}
+			_, name, err := cache.SplitMetaNamespaceKey(key)
+			if err != nil {
+				w.log.Error(err, "Failed to split namespace", "key", key)
+				return
+			}
+			queue.Add(name)
 		},
 	})
 
@@ -110,16 +123,16 @@ func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, 
 	}
 
 	go func() {
-		informer.Informer().Run(watch.informerStopCh)
+		actualInformer.Run(watch.informerStopCh)
 	}()
 
 	go func() {
 		// wait for the caches to synchronize before starting the worker
-		if !cache.WaitForCacheSync(watch.workerStopCh, informer.Informer().HasSynced) {
+		if !cache.WaitForCacheSync(watch.workerStopCh, actualInformer.HasSynced) {
 			utilruntime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
 			return
 		}
-
+		w.log.Info("Worker started", "gvr", gvr, "namespace", namespace)
 		wait.Until(watch.runWorker, time.Second, watch.workerStopCh)
 	}()
 
