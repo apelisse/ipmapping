@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -167,12 +168,8 @@ func (r *IPMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("Failed to apply endpoints: %v", err)
 	}
 
-	gvk := schema.FromAPIVersionAndKind(ipMapping.Spec.TargetRef.APIVersion, ipMapping.Spec.TargetRef.Kind)
-	gvr := schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: gvk.Kind, // TODO: This is wrong since resource != kind
-	}
+	// TODO: This shouldn't use the unsafe form.
+	gvr, _ := meta.UnsafeGuessKindToResource(schema.FromAPIVersionAndKind(ipMapping.Spec.TargetRef.APIVersion, ipMapping.Spec.TargetRef.Kind))
 	watch, err := r.watcher.Watch(gvr, req.Namespace, ipMapping.Spec.TargetRef.Name, func(lister cache.GenericLister) error {
 		log := log.WithName("WatchHandler")
 		log.Info("Event received", "gvr", gvr, "namespace", req.Namespace, "name", req.Name)
