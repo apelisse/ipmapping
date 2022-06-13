@@ -25,6 +25,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -125,12 +126,40 @@ func (r *IPMappingReconciler) ApplyIPMappingStatus(ctx context.Context, nn types
 	return r.Status().Patch(ctx, &mapping, client.Apply, client.FieldOwner("ipmapping_controller"), client.ForceOwnership)
 }
 
-func findField(obj runtime.Object, path *string) *string {
-	if path == nil {
-		return nil
+func (r IPMappingReconciler) DeleteService(ctx context.Context, ipMapping *changegroupv1beta1.IPMapping) error {
+	service := v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ipMapping.ObjectMeta.Name,
+			Namespace: ipMapping.ObjectMeta.Namespace,
+		},
 	}
-	str := string("127.0.0.1")
-	return &str
+	return r.Delete(ctx, &service)
+}
+
+func (r IPMappingReconciler) DeleteEndpoints(ctx context.Context, ipMapping *changegroupv1beta1.IPMapping) error {
+	endpoint := v1.Endpoints{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Endpoints",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ipMapping.ObjectMeta.Name,
+			Namespace: ipMapping.ObjectMeta.Namespace,
+		},
+	}
+	return r.Delete(ctx, &endpoint)
+}
+
+func findField(obj runtime.Object, path *string) (*string, error) {
+	if path == nil {
+		return nil, nil
+	}
+	p := ParsePath(*path)
+	return p.Find(obj.(*unstructured.Unstructured))
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -178,7 +207,10 @@ func (r *IPMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		} else if err != nil {
-			ipAddress = findField(obj, ipMapping.Spec.TargetRef.FieldPath)
+			ipAddress, err = findField(obj, ipMapping.Spec.TargetRef.FieldPath)
+			if err != nil {
+				return err
+			}
 		} else {
 			log.Info("Target deleted", "gvr", gvr, "namespace", req.Namespace, "name", req.Name)
 		}
