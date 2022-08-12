@@ -46,9 +46,6 @@ type IPMappingReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;update;patch;create;delete
 //+kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;update;patch;create;delete
 
-// TODO: Remove that line
-//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
-
 func (r *IPMappingReconciler) ApplyService(ctx context.Context, ipMapping *changegroupv1beta1.IPMapping) error {
 	service := v1.Service{
 		TypeMeta: metav1.TypeMeta{
