@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // Package v1beta1 contains API Schema definitions for the change.group v1beta1 API group
-//+kubebuilder:object:generate=true
-//+groupName=change.group.change.me.later
+// +kubebuilder:object:generate=true
+// +groupName=change.group.change.me.later
 package v1beta1
 
 import (

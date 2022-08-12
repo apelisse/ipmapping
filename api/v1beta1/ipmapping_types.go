@@ -17,12 +17,22 @@ limitations under the License.
 package v1beta1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // IPMappingSpec defines the desired state of IPMapping
 type IPMappingSpec struct {
+	// targetRef is the object and its path that should be used to
+	// find the IP address.
 	TargetRef ObjectReference `json:"targetRef"`
+
+	// Ports is the list of ports that the endpoints should listen
+	// to.
+	// +listType=map
+	// +listMapKey=port
+	// +listMapKey=protocol
+	Ports []IPMappingPort `json:"ports"`
 }
 
 // ObjectReference identifies where to find the IP address that needs to
@@ -40,6 +50,16 @@ type ObjectReference struct {
 	// Path to the IP Field that needs to be mapped.
 	// +optional
 	FieldPath *string `json:"fieldPath,omitempty"`
+}
+
+// IPMappingPort describes the port that the endpoints should listen to.
+type IPMappingPort struct {
+	// Port number to listen to.
+	Port int32 `json:"port"`
+	// Protocol for this port.
+	// +kubebuilder:validation:Enum=TCP;UDP;SCTP
+	// +default=TCP
+	Protocol v1.Protocol `json:"protocol,omitempty"`
 }
 
 // IPMappingStatus defines the observed state of IPMapping
