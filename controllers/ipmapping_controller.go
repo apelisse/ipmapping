@@ -20,20 +20,25 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	changegroupv1beta1 "change.me.later/ipmapping/api/v1beta1"
+	controllers "change.me.later/ipmapping/controllers/internal"
 )
 
 // IPMappingReconciler reconciles a IPMapping object
 type IPMappingReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme  *runtime.Scheme
+	watcher controllers.NamedWatcher
+	watches map[types.NamespacedName]controllers.Watch
 }
 
 //+kubebuilder:rbac:groups=change.group.change.me.later,resources=ipmappings,verbs=get;list;watch
@@ -50,6 +55,14 @@ func (r *IPMappingReconciler) ApplyService(ctx context.Context, ipMapping *chang
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ipMapping.ObjectMeta.Name,
 			Namespace: ipMapping.ObjectMeta.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: ipMapping.APIVersion,
+					Kind:       ipMapping.Kind,
+					Name:       ipMapping.Name,
+					UID:        ipMapping.UID,
+				},
+			},
 		},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
@@ -63,10 +76,20 @@ func (r *IPMappingReconciler) ApplyService(ctx context.Context, ipMapping *chang
 }
 
 func (r *IPMappingReconciler) ApplyEndpoints(ctx context.Context, ipMapping *changegroupv1beta1.IPMapping) error {
-	if ipMapping.Status.IPAddress == nil {
-		// TODO: We should probably remove the existing
-		// endpoints if we don't have the address anymore.
-		return nil
+	subsets := []v1.EndpointSubset{}
+	if ipMapping.Status.IPAddress != nil {
+		subsets = append(subsets, v1.EndpointSubset{
+			Addresses: []v1.EndpointAddress{
+				{
+					IP: *ipMapping.Status.IPAddress,
+				},
+			},
+			Ports: []v1.EndpointPort{
+				{
+					Port: 443, // TODO: Shouldn't be hard-coded
+				},
+			},
+		})
 	}
 	service := v1.Endpoints{
 		TypeMeta: metav1.TypeMeta{
@@ -76,21 +99,16 @@ func (r *IPMappingReconciler) ApplyEndpoints(ctx context.Context, ipMapping *cha
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ipMapping.ObjectMeta.Name,
 			Namespace: ipMapping.ObjectMeta.Namespace,
-		},
-		Subsets: []v1.EndpointSubset{
-			{
-				Addresses: []v1.EndpointAddress{
-					{
-						IP: *ipMapping.Status.IPAddress,
-					},
-				},
-				Ports: []v1.EndpointPort{
-					{
-						Port: 443, // TODO: Shouldn't be hard-coded
-					},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: ipMapping.APIVersion,
+					Kind:       ipMapping.Kind,
+					Name:       ipMapping.Name,
+					UID:        ipMapping.UID,
 				},
 			},
 		},
+		Subsets: subsets,
 	}
 	return r.Patch(ctx, &service, client.Apply, client.FieldOwner("ipmapping_controller"), client.ForceOwnership)
 }
@@ -100,12 +118,11 @@ func (r *IPMappingReconciler) ApplyEndpoints(ctx context.Context, ipMapping *cha
 func (r *IPMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	log.Info("Reconciling", "Request", req)
+	log.Info("Reconciling")
 
 	var ipMapping changegroupv1beta1.IPMapping
+
 	if err := r.Get(ctx, req.NamespacedName, &ipMapping); err != nil {
-		// TODO: If the object is not found, we probably need to remove the
-		// service and stop watching.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -120,7 +137,16 @@ func (r *IPMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *IPMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *IPMappingReconciler) SetupWithManager(mgr ctrl.Manager, log logr.Logger) error {
+	watchMgr, err := controllers.NewWatchManager(log)
+	if err != nil {
+		return err
+	}
+	r.watcher = controllers.NewNamedWatcher(watchMgr, log)
+	if err != nil {
+		return err
+	}
+	r.watches = map[types.NamespacedName]controllers.Watch{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&changegroupv1beta1.IPMapping{}).
 		Complete(r)
