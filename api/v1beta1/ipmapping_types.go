@@ -49,7 +49,8 @@ type IPMappingStatus struct {
 
 	// IPAddress is the IP that we've read from the target object
 	// and that is used for the endpoint.
-	IPAddress *string `json:"ipAddress,omitempty"`
+	// +optional
+	IPAddress *string `json:"ipAddress"`
 }
 
 //+kubebuilder:object:root=true
