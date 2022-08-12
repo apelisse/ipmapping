@@ -39,7 +39,7 @@ func NewFakeWatchManager(log logr.Logger) *FakeWatchManager {
 	}
 }
 
-func (f *FakeWatchManager) Watch(gvr schema.GroupVersionResource, namespace string, handler func(_ cache.GenericLister, name string) error) (controllers.Watch, error) {
+func (f *FakeWatchManager) Watch(gvr schema.GroupVersionResource, namespace string, handler func(_ cache.GenericNamespaceLister, name string) error) (controllers.Watch, error) {
 	f.log.Info("Watch", "gvr", gvr, "namespace", namespace)
 	if gvrw, ok := f.watches[gvr]; ok {
 		if _, ok := gvrw[namespace]; ok {
@@ -85,7 +85,7 @@ type FakeWatch struct {
 	manager   *FakeWatchManager
 	gvr       schema.GroupVersionResource
 	namespace string
-	handler   func(lister cache.GenericLister, name string) error
+	handler   func(lister cache.GenericNamespaceLister, name string) error
 	log       logr.Logger
 }
 
@@ -106,8 +106,8 @@ func (f *FakeWatch) Stop() {
 
 type Counter map[string]int
 
-func (c Counter) Handler(name string) func(cache.GenericLister) error {
-	return func(_ cache.GenericLister) error {
+func (c Counter) Handler(name string) func(cache.GenericNamespaceLister) error {
+	return func(_ cache.GenericNamespaceLister) error {
 		c[name] += 1
 		return nil
 	}

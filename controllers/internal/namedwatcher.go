@@ -42,7 +42,7 @@ type NamedWatcher interface {
 	// The NamedWatcher can't be used from within the handler
 	// (neither to start a new watch nor to stop a watch) in order
 	// to avoid deadlocks.
-	Watch(gvr schema.GroupVersionResource, namespace string, name string, handler func(lister cache.GenericLister) error) (Watch, error)
+	Watch(gvr schema.GroupVersionResource, namespace string, name string, handler func(lister cache.GenericNamespaceLister) error) (Watch, error)
 }
 
 // NewNamedWatcher creates
@@ -78,7 +78,7 @@ func (n *namedWatcher) newGVRNWatch(gvr schema.GroupVersionResource, namespace s
 	return &gvrnWatch, nil
 }
 
-func (n *namedWatcher) Watch(gvr schema.GroupVersionResource, namespace string, name string, handler func(cache.GenericLister) error) (Watch, error) {
+func (n *namedWatcher) Watch(gvr schema.GroupVersionResource, namespace string, name string, handler func(cache.GenericNamespaceLister) error) (Watch, error) {
 	n.log.Info("Adding new watch", "gvr", gvr, "namespace", namespace, "name", name)
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -145,7 +145,7 @@ func (g *gvrnWatch) remove(name string, watch *namedWatch) bool {
 	return false
 }
 
-func (g *gvrnWatch) handle(lister cache.GenericLister, name string) error {
+func (g *gvrnWatch) handle(lister cache.GenericNamespaceLister, name string) error {
 	hasErr := false
 	for _, watches := range g.names[name] {
 		err := watches.handler(lister)
@@ -167,7 +167,7 @@ func (g *gvrnWatch) add(name string, watch *namedWatch) {
 
 type namedWatch struct {
 	watcher   *namedWatcher
-	handler   func(cache.GenericLister) error
+	handler   func(cache.GenericNamespaceLister) error
 	gvr       schema.GroupVersionResource
 	namespace string
 	name      string

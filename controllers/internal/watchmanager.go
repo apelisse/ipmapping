@@ -37,7 +37,7 @@ type WatchManager interface {
 	// Watch creates and starts a new watch for the given GVR. If
 	// the watch can't be started, an error is returned. The watch
 	// can be stopped by calling its Stop method.
-	Watch(gvr schema.GroupVersionResource, namespace string, handler func(lister cache.GenericLister, name string) error) (Watch, error)
+	Watch(gvr schema.GroupVersionResource, namespace string, handler func(lister cache.GenericNamespaceLister, name string) error) (Watch, error)
 }
 
 type watchManager struct {
@@ -63,10 +63,10 @@ func NewWatchManager(log logr.Logger) (WatchManager, error) {
 }
 
 // Watch implements the WatchManager interface.
-func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, handler func(lister cache.GenericLister, key string) error) (Watch, error) {
+func (w *watchManager) Watch(gvr schema.GroupVersionResource, namespace string, handler func(lister cache.GenericNamespaceLister, key string) error) (Watch, error) {
 	w.log.Info("Adding new watch", "gvr", gvr, "namespace", namespace)
 	informer := dynamicinformer.NewFilteredDynamicInformer(w.client, gvr, namespace, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
-	lister := informer.Lister()
+	lister := informer.Lister().ByNamespace(namespace)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	actualInformer := informer.Informer()
 	actualInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -146,9 +146,9 @@ type Watch interface {
 type watch struct {
 	workerStopCh   chan struct{}
 	informerStopCh chan struct{}
-	lister         cache.GenericLister
+	lister         cache.GenericNamespaceLister
 	queue          workqueue.RateLimitingInterface
-	handler        func(lister cache.GenericLister, name string) error
+	handler        func(lister cache.GenericNamespaceLister, name string) error
 	log            logr.Logger
 	gvr            schema.GroupVersionResource
 	namespace      string
