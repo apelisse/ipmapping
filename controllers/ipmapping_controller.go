@@ -63,6 +63,14 @@ func (r *IPMappingReconciler) ApplyService(ctx context.Context, ipMapping *chang
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ipMapping.ObjectMeta.Name,
 			Namespace: ipMapping.ObjectMeta.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: ipMapping.APIVersion,
+					Kind:       ipMapping.Kind,
+					Name:       ipMapping.Name,
+					UID:        ipMapping.UID,
+				},
+			},
 		},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
@@ -76,8 +84,20 @@ func (r *IPMappingReconciler) ApplyService(ctx context.Context, ipMapping *chang
 }
 
 func (r *IPMappingReconciler) ApplyEndpoints(ctx context.Context, ipMapping *changegroupv1beta1.IPMapping) error {
-	if ipMapping.Status.IPAddress == nil {
-		return r.DeleteEndpoints(ctx, ipMapping)
+	subsets := []v1.EndpointSubset{}
+	if ipMapping.Status.IPAddress != nil {
+		subsets = append(subsets, v1.EndpointSubset{
+			Addresses: []v1.EndpointAddress{
+				{
+					IP: *ipMapping.Status.IPAddress,
+				},
+			},
+			Ports: []v1.EndpointPort{
+				{
+					Port: 443, // TODO: Shouldn't be hard-coded
+				},
+			},
+		})
 	}
 	service := v1.Endpoints{
 		TypeMeta: metav1.TypeMeta{
