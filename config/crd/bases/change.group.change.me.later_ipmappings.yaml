@@ -35,20 +35,23 @@ spec:
           spec:
             description: IPMappingSpec defines the desired state of IPMapping
             properties:
+              ipPath:
+                description: ipPath to the IP Field that needs to be mapped.
+                type: string
               ports:
-                description: Ports is the list of ports that the endpoints should
+                description: ports is the list of ports that the endpoints should
                   listen to.
                 items:
                   description: IPMappingPort describes the port that the endpoints
                     should listen to.
                   properties:
                     port:
-                      description: Port number to listen to.
+                      description: port number to listen to.
                       format: int32
                       type: integer
                     protocol:
                       default: TCP
-                      description: Protocol for this port.
+                      description: protocol for this port.
                       enum:
                       - TCP
                       - UDP
@@ -56,7 +59,6 @@ spec:
                       type: string
                   required:
                   - port
-                  - protocol
                   type: object
                 type: array
                 x-kubernetes-list-map-keys:
@@ -64,20 +66,17 @@ spec:
                 - protocol
                 x-kubernetes-list-type: map
               targetRef:
-                description: targetRef is the object and its path that should be used
-                  to find the IP address.
+                description: objectRef is the object be used to find the IP address
+                  and possible ports.
                 properties:
                   apiVersion:
-                    description: APIVersion of the object to watch.
-                    type: string
-                  fieldPath:
-                    description: Path to the IP Field that needs to be mapped.
+                    description: apiVersion of the object to watch.
                     type: string
                   kind:
-                    description: Kind of the resource to watch.
+                    description: kind of the resource to watch.
                     type: string
                   name:
-                    description: Name of the resource to watch.
+                    description: name of the resource to watch.
                     type: string
                 required:
                 - apiVersion
@@ -92,7 +91,7 @@ spec:
             description: IPMappingStatus defines the observed state of IPMapping
             properties:
               ipAddress:
-                description: IPAddress is the IP that we've read from the target object
+                description: ipAddress is the IP that we've read from the target object
                   and that is used for the endpoint.
                 type: string
             type: object
