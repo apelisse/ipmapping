@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
@@ -47,6 +48,14 @@ type IPMappingReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;update;patch;create;delete
 
 func (r *IPMappingReconciler) ApplyService(ctx context.Context, ipMapping *changegroupv1beta1.IPMapping) error {
+	ports := []v1.ServicePort{}
+	for _, port := range ipMapping.Spec.Ports {
+		ports = append(ports, v1.ServicePort{
+			Name:     fmt.Sprintf("%v-%v", port.Port, strings.ToLower(string(port.Protocol))),
+			Port:     port.Port,
+			Protocol: port.Protocol,
+		})
+	}
 	service := v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -65,17 +74,21 @@ func (r *IPMappingReconciler) ApplyService(ctx context.Context, ipMapping *chang
 			},
 		},
 		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Port: 443, // TODO: Shouldn't be hard-coded
-				},
-			},
+			Ports: ports,
 		},
 	}
 	return r.Patch(ctx, &service, client.Apply, client.FieldOwner("ipmapping_controller"), client.ForceOwnership)
 }
 
 func (r *IPMappingReconciler) ApplyEndpoints(ctx context.Context, ipMapping *changegroupv1beta1.IPMapping) error {
+	ports := []v1.EndpointPort{}
+	for _, port := range ipMapping.Spec.Ports {
+		ports = append(ports, v1.EndpointPort{
+			Name:     fmt.Sprintf("%v-%v", port.Port, strings.ToLower(string(port.Protocol))),
+			Port:     port.Port,
+			Protocol: port.Protocol,
+		})
+	}
 	subsets := []v1.EndpointSubset{}
 	if ipMapping.Status.IPAddress != nil {
 		subsets = append(subsets, v1.EndpointSubset{
@@ -84,14 +97,10 @@ func (r *IPMappingReconciler) ApplyEndpoints(ctx context.Context, ipMapping *cha
 					IP: *ipMapping.Status.IPAddress,
 				},
 			},
-			Ports: []v1.EndpointPort{
-				{
-					Port: 443, // TODO: Shouldn't be hard-coded
-				},
-			},
+			Ports: ports,
 		})
 	}
-	service := v1.Endpoints{
+	endpoints := v1.Endpoints{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Endpoints",
 			APIVersion: "v1",
@@ -110,7 +119,7 @@ func (r *IPMappingReconciler) ApplyEndpoints(ctx context.Context, ipMapping *cha
 		},
 		Subsets: subsets,
 	}
-	return r.Patch(ctx, &service, client.Apply, client.FieldOwner("ipmapping_controller"), client.ForceOwnership)
+	return r.Patch(ctx, &endpoints, client.Apply, client.FieldOwner("ipmapping_controller"), client.ForceOwnership)
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
