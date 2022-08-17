@@ -23,11 +23,15 @@ import (
 
 // IPMappingSpec defines the desired state of IPMapping
 type IPMappingSpec struct {
-	// targetRef is the object and its path that should be used to
-	// find the IP address.
-	TargetRef ObjectReference `json:"targetRef"`
+	// objectRef is the object be used to find the IP address and
+	// possible ports.
+	ObjectRef ObjectReference `json:"targetRef"`
 
-	// Ports is the list of ports that the endpoints should listen
+	// ipPath to the IP Field that needs to be mapped.
+	// +optional
+	IPPath *string `json:"ipPath,omitempty"`
+
+	// ports is the list of ports that the endpoints should listen
 	// to.
 	// +listType=map
 	// +listMapKey=port
@@ -38,25 +42,22 @@ type IPMappingSpec struct {
 // ObjectReference identifies where to find the IP address that needs to
 // be mapped with a service.
 type ObjectReference struct {
-	// APIVersion of the object to watch.
+	// apiVersion of the object to watch.
 	APIVersion string `json:"apiVersion"`
 
-	// Kind of the resource to watch.
+	// kind of the resource to watch.
 	Kind string `json:"kind"`
 
-	// Name of the resource to watch.
+	// name of the resource to watch.
 	Name string `json:"name"`
-
-	// Path to the IP Field that needs to be mapped.
-	// +optional
-	FieldPath *string `json:"fieldPath,omitempty"`
 }
 
 // IPMappingPort describes the port that the endpoints should listen to.
 type IPMappingPort struct {
-	// Port number to listen to.
+	// port number to listen to.
 	Port int32 `json:"port"`
-	// Protocol for this port.
+
+	// protocol for this port.
 	// +kubebuilder:validation:Enum=TCP;UDP;SCTP
 	// +default=TCP
 	Protocol v1.Protocol `json:"protocol,omitempty"`
@@ -67,7 +68,7 @@ type IPMappingStatus struct {
 	// TODO: That certainly misses `Conditions`, but I'm too lazy
 	// right now to do it, and we can live without it for now.
 
-	// IPAddress is the IP that we've read from the target object
+	// ipAddress is the IP that we've read from the target object
 	// and that is used for the endpoint.
 	// +optional
 	IPAddress *string `json:"ipAddress"`

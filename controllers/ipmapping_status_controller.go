@@ -94,9 +94,9 @@ func (r *IPMappingStatusReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// TODO: This shouldn't use the unsafe form.
-	gvr, _ := meta.UnsafeGuessKindToResource(schema.FromAPIVersionAndKind(ipMapping.Spec.TargetRef.APIVersion, ipMapping.Spec.TargetRef.Kind))
-	watch, err := r.watcher.Watch(gvr, req.Namespace, ipMapping.Spec.TargetRef.Name, func(lister cache.GenericNamespaceLister) error {
-		name := ipMapping.Spec.TargetRef.Name
+	gvr, _ := meta.UnsafeGuessKindToResource(schema.FromAPIVersionAndKind(ipMapping.Spec.ObjectRef.APIVersion, ipMapping.Spec.ObjectRef.Kind))
+	watch, err := r.watcher.Watch(gvr, req.Namespace, ipMapping.Spec.ObjectRef.Name, func(lister cache.GenericNamespaceLister) error {
+		name := ipMapping.Spec.ObjectRef.Name
 		log := log.WithName("WatchHandler")
 		log.Info("Event received", "gvr", gvr, "namespace", req.Namespace, "name", name)
 		obj, err := lister.Get(name)
@@ -107,7 +107,7 @@ func (r *IPMappingStatusReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			}
 			log.Info("Target deleted", "gvr", gvr, "namespace", req.Namespace, "name", name)
 		} else {
-			ipAddress, err = findField(obj, ipMapping.Spec.TargetRef.FieldPath)
+			ipAddress, err = findField(obj, ipMapping.Spec.IPPath)
 			if err != nil {
 				return err
 			}
