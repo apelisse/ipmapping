@@ -25,21 +25,17 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	changegroupv1beta1 "change.me.later/ipmapping/api/v1beta1"
-	controllers "change.me.later/ipmapping/controllers/internal"
 )
 
 // IPMappingReconciler reconciles a IPMapping object
 type IPMappingReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	watcher controllers.NamedWatcher
-	watches map[types.NamespacedName]controllers.Watch
+	Scheme *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=change.group.change.me.later,resources=ipmappings,verbs=get;list;watch
@@ -147,15 +143,6 @@ func (r *IPMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *IPMappingReconciler) SetupWithManager(mgr ctrl.Manager, log logr.Logger) error {
-	watchMgr, err := controllers.NewWatchManager(log)
-	if err != nil {
-		return err
-	}
-	r.watcher = controllers.NewNamedWatcher(watchMgr, log)
-	if err != nil {
-		return err
-	}
-	r.watches = map[types.NamespacedName]controllers.Watch{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&changegroupv1beta1.IPMapping{}).
 		Complete(r)

@@ -48,12 +48,7 @@ type watchManager struct {
 // NewWatchManager creates a new watch factory that can watch arbitrary
 // resources, and the watches can be stopped. This automatically uses
 // the in-cluster configuration.
-func NewWatchManager(log logr.Logger) (WatchManager, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-
+func NewWatchManager(config *rest.Config, log logr.Logger) (WatchManager, error) {
 	client, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err

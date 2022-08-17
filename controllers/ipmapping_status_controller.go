@@ -124,7 +124,7 @@ func (r *IPMappingStatusReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *IPMappingStatusReconciler) SetupWithManager(mgr ctrl.Manager, log logr.Logger) error {
-	watchMgr, err := controllers.NewWatchManager(log)
+	watchMgr, err := controllers.NewWatchManager(mgr.GetConfig(), log)
 	if err != nil {
 		return err
 	}
